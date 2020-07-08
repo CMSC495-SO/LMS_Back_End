@@ -1,5 +1,7 @@
 $(document).ready(function () {
-    var _this = {};
+    var _this = {
+        baseServiceUrl: window.location.href
+    };
     //run code here
     init();
 
@@ -18,7 +20,7 @@ $(document).ready(function () {
     }
 
     function fetchAndRenderLibrary() {
-        $.get('http://localhost:3000/lib/library').then(function (response) {
+        $.get(_this.baseServiceUrl + 'lib/library').then(function (response) {
             _this.libData = response;
             _this.$libArea.find('table tbody').empty();
             response.forEach(function (data) {
@@ -32,7 +34,7 @@ $(document).ready(function () {
     }
 
     function fetchAndRenderUsers() {
-        $.get('http://localhost:3000/lib/library/users').then(function (response) {
+        $.get(_this.baseServiceUrl + 'lib/library/users').then(function (response) {
             _this.userData = response;
             _this.$userArea.find('table tbody').empty();
             if (!response.length) {
@@ -126,13 +128,13 @@ $(document).ready(function () {
     }
 
     _this.loadBooks = function() {
-        $.get('http://localhost:3000/lib/library/book/load').then(function() {
+        $.get(_this.baseServiceUrl + 'lib/library/book/load').then(function() {
             alert(arguments[0].message);
         })
     };
 
     _this.addBook = function (param) {
-        $.post('http://localhost:3000/lib/library/book/add', param).then(function () {
+        $.post(_this.baseServiceUrl + 'lib/library/book/add', param).then(function () {
             console.log('success');
         }, function () {
             console.error('failure');
@@ -159,7 +161,7 @@ $(document).ready(function () {
     }
 
     _this.addLibraryName = function (params) {
-        $.post('http://localhost:3000/lib/library', params).then(function () {
+        $.post(_this.baseServiceUrl + 'lib/library', params).then(function () {
             console.log('success');
             fetchAndRenderLibrary();
         }, function () {
@@ -168,7 +170,7 @@ $(document).ready(function () {
     };
 
     _this.addUser = function (params) {
-        $.post('http://localhost:3000/lib/library/users', params).then(function () {
+        $.post(_this.baseServiceUrl + 'lib/library/users', params).then(function () {
             fetchAndRenderUsers();
         }, function () {
             console.error('failure');
@@ -176,7 +178,7 @@ $(document).ready(function () {
     };
 
     _this._checkUser = function (params) {
-        $.get('http://localhost:3000/lib/library/users/checkUser', params).then(function (res) {
+        $.get(_this.baseServiceUrl + 'lib/library/users/checkUser', params).then(function (res) {
             _this.$userArea.find('.check-user-section .results').text(res.isValid === 0);
         }, function () {
             console.error('failure');
@@ -184,7 +186,7 @@ $(document).ready(function () {
     };
 
     _this.removeLibraryName = function (params) {
-        $.delete('http://localhost:3000/lib/library', params).then(function () {
+        $.delete(_this.baseServiceUrl + 'lib/library', params).then(function () {
             console.log('success');
             fetchAndRenderLibrary();
         }, function () {

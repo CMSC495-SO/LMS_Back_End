@@ -44,9 +44,7 @@ define([
             throw new Error("UNINITIALIZED ERROR: Controller not initialized.");
         }
 
-        this.ioReference.on('library-added', function () {
-            debugger;
-        });
+        this.ioReference.on('library-added', function () {});
     };
 
     applicationServer.registerRoutes = function () {

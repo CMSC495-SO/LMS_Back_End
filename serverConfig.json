@@ -6,7 +6,8 @@
       "timeout": 600000,
       "cors": [
         "http://localhost:3000",
-        "http://localhost:4200"
+        "http://localhost:4200",
+        "https://library-management-sys.herokuapp.com/"
       ]
     },
     "production": {
@@ -15,7 +16,8 @@
       "timeout": 600000,
       "cors": [
         "http://localhost:3000",
-        "http://localhost:4200"
+        "http://localhost:4200",
+        "https://library-management-sys.herokuapp.com/"
       ]
     }
   }

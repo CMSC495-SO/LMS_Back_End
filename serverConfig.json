@@ -7,7 +7,7 @@
       "cors": [
         "http://localhost:3000",
         "http://localhost:4200",
-        "https://library-management-sys.herokuapp.com/"
+        "https://library-management-sys.herokuapp.com"
       ]
     },
     "production": {
@@ -17,7 +17,7 @@
       "cors": [
         "http://localhost:3000",
         "http://localhost:4200",
-        "https://library-management-sys.herokuapp.com/"
+        "https://library-management-sys.herokuapp.com"
       ]
     }
   }

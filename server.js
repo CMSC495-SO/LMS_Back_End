@@ -48,7 +48,9 @@ requirejs([
 
     function startServer() {
         const port = 3000;
-        server.listen(port);
+        console.log('Process port: %s', process.env.PORT);
+        console.log('hard port 3000');
+        server.listen(process.env.PORT || port);
         console.debug('Server listening on port ' + port);
     }
 

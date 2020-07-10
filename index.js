@@ -101,6 +101,22 @@ $(document).ready(function () {
             /*_this.loadBooks();*/
         });
 
+        _this.$bookArea.off('keyup', '.find-book-section div .txtSearchValue');
+        _this.$bookArea.on('keyup', '.find-book-section div .txtSearchValue', function (param) {
+            if(param.keyCode === 13)
+            {
+                var searchObject = {
+                    val: $(param.target).val() ,
+                    by: _this.$bookArea.find('.searchType').val()
+                };
+
+                _this.findBook(searchObject);
+        
+
+            }
+        });
+        
+
         _this.$bookArea.off('click', '.add-book-section div .btnSubmitNewBook');
         _this.$bookArea.on('click', '.add-book-section div .btnSubmitNewBook', function () {
             var paramObject = {
@@ -126,6 +142,13 @@ $(document).ready(function () {
             _this.addBook(paramObject);
         });
     }
+
+    _this.findBook = function(param){
+        $.get(_this.baseServiceUrl + 'lib/library/book/find', param).then(function(response) {
+            console.log(response);
+            debugger;
+        })
+    };
 
     _this.loadBooks = function() {
         $.get(_this.baseServiceUrl + 'lib/library/book/load').then(function() {

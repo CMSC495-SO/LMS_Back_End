@@ -55,6 +55,7 @@ define([
         this.appReference.get(this.options.baseServicePath + '/users', context.getUsers.bind(this));
         this.appReference.get(this.options.baseServicePath + '/users/checkUser', context.checkUserNameInUse.bind(this));
         this.appReference.get(this.options.baseServicePath + '/books', context.getBooks.bind(this));
+        this.appReference.get(this.options.baseServicePath + '/book/find', context.findBook.bind(this));
         /*this.appReference.get(this.options.baseServicePath + '/book/load', context.loadBooks.bind(this));*/
 
         //post requests
@@ -161,6 +162,19 @@ define([
     applicationServer.getBooks = function (data, res) {
         this.Book.find({}, (error, books) => {
             res.send(books);
+        });
+    };
+
+    applicationServer.findBook = function (data, res){
+        let query = {}, allowableQueries = ['title', '_id'];
+        if (allowableQueries.indexOf(data.query.by) === -1){
+            res.status(402).send('Invalid search type!');
+            return;
+        }
+
+        query[data.query.by]=data.query.val;
+        this.Book.find(query, (error, book) => {
+            res.send(book);
         });
     };
 

@@ -185,7 +185,7 @@ define([
     };
 
     applicationServer.addUser = async function (data, res, next) {
-        let entry = Object.assign(data.body, {
+        let entry = Object.assign(data.body.params, {
             dateAdded: data.body.timestamp,
             dateModified: data.body.timestamp
         });

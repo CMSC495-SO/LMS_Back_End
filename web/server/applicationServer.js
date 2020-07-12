@@ -44,7 +44,7 @@ define([
             throw new Error("UNINITIALIZED ERROR: Controller not initialized.");
         }
 
-        this.ioReference.on('library-added', function () {});
+        this.ioReference.on('library-added', function () { });
     };
 
     applicationServer.registerRoutes = function () {
@@ -56,6 +56,7 @@ define([
         this.appReference.get(this.options.baseServicePath + '/users/checkUser', context.checkUserNameInUse.bind(this));
         this.appReference.get(this.options.baseServicePath + '/books', context.getBooks.bind(this));
         this.appReference.get(this.options.baseServicePath + '/book/find', context.findBook.bind(this));
+        this.appReference.get(this.options.baseServicePath + '/getUserReservations', context.getUserReservations.bind(this));
         /*this.appReference.get(this.options.baseServicePath + '/book/load', context.loadBooks.bind(this));*/
 
         //post requests
@@ -63,6 +64,8 @@ define([
         this.appReference.post(this.options.baseServicePath + '/login', context.loginUser.bind(this));
         this.appReference.post(this.options.baseServicePath + '/users', context.addUser.bind(this));
         this.appReference.post(this.options.baseServicePath + '/book/add', context.addBook.bind(this));
+        this.appReference.post(this.options.baseServicePath + '/book/checkout', context.checkoutBook.bind(this));
+        this.appReference.post(this.options.baseServicePath + '/book/return', context.returnBook.bind(this));
 
         //put requests
         //this.appReference.put();
@@ -165,14 +168,14 @@ define([
         });
     };
 
-    applicationServer.findBook = function (data, res){
+    applicationServer.findBook = function (data, res) {
         let query = {}, allowableQueries = ['title', '_id'];
-        if (allowableQueries.indexOf(data.query.by) === -1){
+        if (allowableQueries.indexOf(data.query.by) === -1) {
             res.status(402).send('Invalid search type!');
             return;
         }
 
-        query[data.query.by]=data.query.val;
+        query[data.query.by] = data.query.value;
         this.Book.find(query, (error, book) => {
             res.send(book);
         });
@@ -196,10 +199,10 @@ define([
                 if (err) {
                     throw err;
                 }
-                res.json({status:200, message: 'User added successfully.'});
+                res.json({ status: 200, message: 'User added successfully.' });
             });
         } catch (ex) {
-            res.json({status:203, message: 'An error has been found'});
+            res.json({ status: 203, message: 'An error has been found' });
             next(ex);
             console.error(ex);
         }
@@ -216,8 +219,9 @@ define([
             res.json(resObject);
             return;
         }
-        this.Account.findOne({userName: toCheck.userName}, function (err, account) {
+        this.Account.findOne({ userName: toCheck.userName }, function (err, account) {
             if (err) {
+                resObject.message = 'User not found';
                 res.json(resObject);
                 /*todo: update resObject with failure message: something like could not find user*/
                 throw err;
@@ -240,9 +244,10 @@ define([
                     firstName: account.firstName,
                     lastName: account.lastName,
                     emailAddress: account.emailAddress,
-                    reservations: account.reservations || [],
                     createdOn: account.dateAdded,
-                    modifiedOn: account.dateModified
+                    modifiedOn: account.dateModified,
+                    roles: account.roles,
+                    id: account._id
                 };
                 resObject.matched = isMatch;
                 res.json(resObject);
@@ -257,11 +262,11 @@ define([
                 throw err;
             }
 
-            res.json({isValid: user.length});
+            res.json({ isValid: user.length });
         });
     };
 
-    applicationServer.addBook = async function (data, res){
+    applicationServer.addBook = async function (data, res) {
         var entry = {
             title: data.body.title,
             ISBN: data.body.ISBN,
@@ -296,6 +301,160 @@ define([
             res.json(properties);
             console.error(ex);
         }
+    }
+
+    applicationServer.getUserReservations = function (data, res) {
+        const params = data.query;
+        const context = this;
+        let response = {
+            message: 'User not found! Reservations not found',
+            statusCode: 203,
+            data: []
+        };
+
+        context.Account.findOne({ _id: params.userId }, (err, account) => {
+            if (err || account.reservations.length === 0) {
+                res.json(response);
+
+                return;
+            }
+
+            context.Book.find({
+                _id: {
+                    $in: account.reservations
+                }
+            }, function (error, books) {
+                response.data = books;
+
+                if (err) {
+                    response.message = 'Reservation(s) not found!';
+                    res.json(response);
+                    return;
+                }
+
+                response.message = 'Success';
+                response.statusCode = 200;
+                res.json(response);
+            });
+        });
+    }
+
+    applicationServer.checkoutBook = function (data, res) {
+        var context = this,
+            params = data.body;
+
+        context.Account.findOne({ userName: params.userId }, function (error, account) {
+            if (error) {
+                res.json({ message: 'User not found or No user currently logged in.', statusCode: 203 });
+                return;
+            }
+
+            context.Book.findOne({ _id: params.bookId }, async function (err, book) {
+                if (err) {
+                    res.json({ message: 'Error: Book not found. Item not in catalog.', statusCode: 203 });
+                    return;
+                }
+
+                if (book.status !== 'available') {
+                    res.json({ message: `${book.title} is not available for checkout. ${book.title} is currently ${book.status}`, statusCode: 203 });
+                    return;
+                }
+
+                try {
+                    account.updateOne({$push: {"reservations": book.id}, safe: true, upsert: true}, function(err, model) {
+                        if (err) {
+                            res.json({message: 'Account reservation update failed. Please try again later', statusCode: 203});
+                            throw new Error('Account update failed');
+                        }
+                    });
+                    book.checkedOutBy = account._id;
+                    book.statusModifiedOn = Date.now();
+                    book.status = 'loaned';
+                    await book.save();
+                    res.send({ message: 'Successfully checked out book!', statusCode: 200 });
+                } catch(ex) {
+                    res.send({ message: 'Failed to checkout book', statusCode: 203});
+                }
+            });
+
+        });
+    }
+
+    applicationServer.returnBook = function (data, res) {
+        var context = this, params = data.body;
+
+        context.Account.findOne({ userName: params.userName }, function (error, account) {
+            if (error) {
+                res.json({ message: 'User not found or No user currently logged in.', statusCode: 203 });
+                return;
+            }
+
+            try {
+                account.updateOne({$pull: {"reservations": params.bookId}}, function(err) {
+                    if (err) {
+                        res.json({message: 'Account reservation update failed. Please try again later', statusCode: 203});
+                        throw new Error('Account update failed');
+                    }
+                });
+            } catch(ex) {
+                res.json({message: 'Account reservation update failed. Please try again later', statusCode: 203});
+                return;
+            }
+
+            context.Book.findOne({ _id: params.bookId }, async function (err, book) {
+                if (err) {
+                    res.json({ message: 'IdentifierInvalid: Book not found.', statusCode: 203 });
+                    return;
+                }
+
+                try {
+                    book.checkedOutBy = null;
+                    book.statusModifiedOn = Date.now();
+                    book.status = 'available';
+                    await book.save();
+                    res.send({ message: 'Successfully returned book!', statusCode: 200 });
+                } catch (ex) {
+                    res.send({message: 'An error has occurred, removal not possible', statusCode: 203});
+                }                
+            });
+        });
+    }
+
+    // params = loggedInUser, accountId, roleToAdd
+    applicationServer.addUserRole = function (data, res) {
+        var context = this,
+            params = data.body.params, returnMessage = {
+                message: '',
+                statusCode: 203
+            };
+
+        context.Account.findOne({ _id: params.loggedInUser }, function (err, account) {
+            if (err || !account.hasOwnProperty('roles') || account.roles.indexOf('admin') === -1) {
+                returnMessage.message = 'No Logged in user or Logged In user is not admin. Contact the admins';
+                res.json(returnMessage);
+                return;
+            }
+        });
+
+        context.Account.findOne({ _id: params.accountId }, async function (err, account) {
+            if (err) {
+                returnMessage.message = 'Account to modify not found.';
+                res.json(returnMessage);
+                return;
+            }
+
+            if (account.hasOwnProperty('roles') && account.roles.indexOf(params.roleToAdd) !== -1) {
+                returnMessage.message = `Account already has role ${params.roleToAdd}`;
+                res.json(returnMessage);
+                return;
+            }
+
+            account.roles = (account.roles || []).push(params.roleToAdd);
+            account.dateModified = Date.now();
+            await account.save();
+
+            res.send(returnMessage)
+        });
     }
 
     return applicationServer;

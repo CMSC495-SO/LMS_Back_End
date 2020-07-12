@@ -1,9 +1,12 @@
+const { Schema } = require("mongoose");
+
 define([
     'mongoose',
     'enumerations/bookFormat.enum',
     'enumerations/bookStatus.enum',
-    'schema/author.schema'
-], function (mongoose, BookFormat, BookStatus, AuthorSchema) {
+    'schema/author.schema',
+    'schema/account.schema'
+], function (mongoose, BookFormat, BookStatus, AuthorSchema, AccountSchema) {
     'use strict';
 
     return mongoose.Schema({
@@ -29,6 +32,10 @@ define([
         },
         dateOfPurchase: Date,
         publicationDate: Date,
-        id: String
+        _id: Schema.Types.ObjectId,
+        checkedOutBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Account'
+        }
     });
 });

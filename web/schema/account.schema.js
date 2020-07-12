@@ -1,8 +1,9 @@
 define([
     'mongoose',
     'enumerations/accountStatus.enum',
-    'schema/libraryCard.schema'
-], function (mongoose, AccountStatus) {
+    'schema/libraryCard.schema',
+    'schema/book.schema'
+], function (mongoose, AccountStatus, BookSchema) {
     'use strict';
 
     return mongoose.Schema({
@@ -25,15 +26,18 @@ define([
             type: String,
             enum: AccountStatus
         },
+        roles: [{
+            type: String,
+            enum: ['admin', 'member', 'guest'],
+            required: true
+        }],
         dateAdded: {
             type: Date
         },
         dateModified: {
-            type: Date
+            type: Date,
+            default: Date.now
         },
-        reservations: {
-            type: Array,
-            of: String
-        }
+        reservations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Book'}]
     });
 });

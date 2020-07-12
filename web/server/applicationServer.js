@@ -63,17 +63,19 @@ define([
         this.appReference.post(this.options.baseServicePath, context.addNewLibrary.bind(this));
         this.appReference.post(this.options.baseServicePath + '/login', context.loginUser.bind(this));
         this.appReference.post(this.options.baseServicePath + '/users', context.addUser.bind(this));
+        this.appReference.post(this.options.baseServicePath + '/users/fetchUsers', context.getAllUsers.bind(this));
         this.appReference.post(this.options.baseServicePath + '/book/add', context.addBook.bind(this));
         this.appReference.post(this.options.baseServicePath + '/book/checkout', context.checkoutBook.bind(this));
         this.appReference.post(this.options.baseServicePath + '/book/return', context.returnBook.bind(this));
 
         //put requests
-        //this.appReference.put();
+        this.appReference.put(this.options.baseServicePath + '/users/updateUser', context.updateUser.bind(this));
 
         //delete requests
         this.appReference.delete(this.options.baseServicePath + '/delete/:id', async (req, res) => {
             context.deleteLibrary(req, res);
         });
+        this.appReference.delete(this.appReference.baseServicePath + '/users/:id', context.removeUser.bind(this));
     };
 
     applicationServer.initializeModels = function () {
@@ -158,9 +160,48 @@ define([
 
     applicationServer.getUsers = function (data, res) {
         this.Account.find({}, (error, accounts) => {
-            res.send(accounts);
+            res.send(accounts.map((x)=> {return x.userName}));
         });
     };
+
+    applicationServer.getAllUsers = function (data, res) {
+        let params = data.body.params, returnObj = {message: 'Success', data: [], statusCode: 200};
+
+        const query = this.Account.find();
+
+        if (!params || !params.userId) {
+            returnObj.statusCode = 203;
+            returnObj.message ='Access Denied: User must be admin to access global listing.';
+            res.json(returnObj);
+            return;
+        }
+
+        try {
+            this.Account.findOne({_id: params.userId, roles: {$in: 'admin'}}, function(err, account) {
+                if (err || !account) {                    
+                    throw new Error('Access Denied');
+                }
+            });
+        } catch (ex) {
+            returnObj.statusCode = 203;
+            returnObj.message ='Access Denied: User must be admin to access global listing.';
+            res.json(returnObj);
+            return;
+        }
+        
+        query.select('-password -reservations');
+        query.exec((err, accounts) => {
+            if (err) {
+                returnObj.statusCode = 203;
+                returnObj.message = 'SchemaError: Accounts not found';
+                res.json(returnObj);
+                return;
+            }
+
+            returnObj.data = accounts;
+            res.json(returnObj);
+        });
+    }
 
     applicationServer.getBooks = function (data, res) {
         this.Book.find({}, (error, books) => {
@@ -188,10 +229,9 @@ define([
     };
 
     applicationServer.addUser = async function (data, res, next) {
-        let entry = Object.assign(data.body.params, {
-            dateAdded: data.body.timestamp,
-            dateModified: data.body.timestamp
-        });
+        let entry = data.body.params;
+
+        entry = Object.assign(entry, {dateAdded: Date.now(), dateModified: Date.now()});
 
         try {
             let account = new this.Account(entry);
@@ -418,6 +458,63 @@ define([
                 }                
             });
         });
+    }
+
+    /* update format
+        {
+            toUpdate: dataObj to update,
+            updatedBy: userId of initiator,
+            forceAction: boolean force action if user is not admin
+        }
+    */
+    applicationServer.updateUser = function(data, res) {
+        const context = this;
+        let params = data.body, response = {message: 'User updated', statusCode: 200};
+
+        try {
+            if (!params.hasOwnProperty('forceAction') || !params.forceAction) {
+                context.Account.findOne({_id: params.updatedBy, roles: 'admin'}, (err, account) => {
+                    if (err || !account) {
+                        throw new Error("Unauthorized action: User not authorized for updates");
+                    }
+                });
+            }
+            
+            context.Account.findOne({_id: params.toUpdate._id}, async (err, account) => {
+                if (err) {
+                    throw new Error("Account not found");
+                }
+
+                account.emailAddress= params.toUpdate.emailAddress || '';
+                account.firstName= params.toUpdate.firstName;
+                account.lastName= params.toUpdate.lastName;
+                account.roles= params.toUpdate.roles;
+                account.userName= params.toUpdate.userName;
+                account.dateModified = Date.now();
+
+                await account.save();
+                res.json(response);
+            });
+        } catch (ex) {
+            response.message = "Unauthorized action: User not authorized for updates";
+            response.statusCode = 203;
+            res.json(response);
+        }
+    }
+
+    applicationServer.removeUser = async function(data, res) {
+        var params = data.body;
+        try {
+            this.Account.find({_id: params.userId, roles: 'admin'}, function(err, account) {
+                if (err || !account) {
+                    throw new Error("Unauthorized user access");
+                }
+            });
+            await this.Account.deleteOne({_id: params.itemId});
+            res.json({message: 'Successfully removed user', statusCode: 200});
+        } catch (ex) {
+            res.json({message: 'Unauthorized Action: Failed to remove user', statusCode: 203});
+        }
     }
 
     // params = loggedInUser, accountId, roleToAdd

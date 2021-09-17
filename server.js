@@ -37,7 +37,7 @@ requirejs([
     }
 
     function manageDBConnection() {
-        mongoose.connect(conString + dbName, {useCreateIndex:true, useUnifiedTopology: true, useNewUrlParser: true}, function (err) {
+        mongoose.connect(conString + dbName, {}, function (err) {
             console.log('Database connection:', err === null ? 'success' : err);
         });
     }
